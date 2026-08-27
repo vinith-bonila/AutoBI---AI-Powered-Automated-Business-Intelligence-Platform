@@ -1,0 +1,227 @@
+@import "tailwindcss";
+
+/**
+ * AutoBI design tokens.
+ *
+ * The chart palette is the validated default from the data-visualisation
+ * reference: eight categorical hues in a FIXED order whose adjacent pairs clear
+ * the colour-vision-deficiency and normal-vision separation gates in both light
+ * and dark mode. Do not reorder, extend or cycle these slots — the order is the
+ * safety mechanism, not a style choice.
+ *
+ * Light-mode aqua, yellow and magenta sit below 3:1 against the surface, so
+ * every chart ships visible labels (legend + direct labels) and the dashboard
+ * carries a table view. That is the documented relief for the contrast warning.
+ */
+
+@theme {
+  /* -- surfaces & ink ---------------------------------------------------- */
+  --color-plane: #f9f9f7;
+  --color-surface: #fcfcfb;
+  --color-ink: #0b0b0b;
+  --color-ink-secondary: #52514e;
+  --color-ink-muted: #898781;
+  --color-grid: #e1e0d9;
+  --color-axis: #c3c2b7;
+  --color-hairline: rgba(11, 11, 11, 0.1);
+
+  /* -- categorical series (fixed order) ---------------------------------- */
+  --color-series-1: #2a78d6; /* blue */
+  --color-series-2: #eb6834; /* orange */
+  --color-series-3: #1baf7a; /* aqua */
+  --color-series-4: #eda100; /* yellow */
+  --color-series-5: #e87ba4; /* magenta */
+  --color-series-6: #008300; /* green */
+  --color-series-7: #4a3aa7; /* violet */
+  --color-series-8: #e34948; /* red */
+
+  /* -- sequential (blue ramp, light -> dark) ----------------------------- */
+  --color-seq-100: #cde2fb;
+  --color-seq-250: #86b6ef;
+  --color-seq-400: #3987e5;
+  --color-seq-550: #1c5cab;
+  --color-seq-700: #0d366b;
+
+  /* -- diverging poles for the correlation heatmap ----------------------- */
+  --color-diverging-negative: #d03b3b;
+  --color-diverging-neutral: #f0efec;
+  --color-diverging-positive: #2a78d6;
+
+  /* -- status (reserved; never used as a series colour) ------------------ */
+  --color-good: #0ca30c;
+  --color-warning: #fab219;
+  --color-serious: #ec835a;
+  --color-critical: #d03b3b;
+  --color-success-text: #006300;
+
+  /* -- product accent ---------------------------------------------------- */
+  --color-accent: #1c5cab;
+  --color-accent-hover: #184f95;
+  --color-accent-soft: #eaf2fd;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+/**
+ * Dark mode is a selected palette, not an inverted one: these are the same
+ * eight hues re-stepped for the dark surface and validated as a set against it.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    --color-plane: #0d0d0d;
+    --color-surface: #1a1a19;
+    --color-ink: #ffffff;
+    --color-ink-secondary: #c3c2b7;
+    --color-ink-muted: #898781;
+    --color-grid: #2c2c2a;
+    --color-axis: #383835;
+    --color-hairline: rgba(255, 255, 255, 0.1);
+
+    --color-series-1: #3987e5;
+    --color-series-2: #d95926;
+    --color-series-3: #199e70;
+    --color-series-4: #c98500;
+    --color-series-5: #d55181;
+    --color-series-6: #008300;
+    --color-series-7: #9085e9;
+    --color-series-8: #e66767;
+
+    --color-diverging-neutral: #383835;
+    --color-success-text: #0ca30c;
+
+    --color-accent: #3987e5;
+    --color-accent-hover: #5598e7;
+    --color-accent-soft: #14243a;
+  }
+}
+
+:root[data-theme="dark"] {
+  --color-plane: #0d0d0d;
+  --color-surface: #1a1a19;
+  --color-ink: #ffffff;
+  --color-ink-secondary: #c3c2b7;
+  --color-ink-muted: #898781;
+  --color-grid: #2c2c2a;
+  --color-axis: #383835;
+  --color-hairline: rgba(255, 255, 255, 0.1);
+
+  --color-series-1: #3987e5;
+  --color-series-2: #d95926;
+  --color-series-3: #199e70;
+  --color-series-4: #c98500;
+  --color-series-5: #d55181;
+  --color-series-6: #008300;
+  --color-series-7: #9085e9;
+  --color-series-8: #e66767;
+
+  --color-diverging-neutral: #383835;
+  --color-success-text: #0ca30c;
+
+  --color-accent: #3987e5;
+  --color-accent-hover: #5598e7;
+  --color-accent-soft: #14243a;
+}
+
+* {
+  border-color: var(--color-hairline);
+}
+
+html {
+  color-scheme: light dark;
+  overflow-x: hidden;
+}
+
+body {
+  background-color: var(--color-plane);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* A stray wide element must never make the whole page scroll sideways on a
+     phone; wide content scrolls inside its own container instead. */
+  overflow-x: hidden;
+}
+
+/* Columns of figures align; standalone hero numbers keep proportional digits. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Recharts injects its own focus outline on the SVG wrapper. */
+.recharts-wrapper:focus,
+.recharts-surface:focus {
+  outline: none;
+}
+
+/* Keyboard users still get a visible ring on real controls. */
+:where(button, a, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@keyframes autobi-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-fade-in {
+  animation: autobi-fade-in 0.28s ease-out both;
+}
+
+@keyframes autobi-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--color-grid);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-hairline),
+    transparent
+  );
+  animation: autobi-shimmer 1.6s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .skeleton::after {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* Thin, unobtrusive scrollbars inside scrolling chart containers. */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-axis) transparent;
+}
+
+.scroll-thin::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.scroll-thin::-webkit-scrollbar-thumb {
+  background-color: var(--color-axis);
+  border-radius: 4px;
+}

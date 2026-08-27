@@ -1,0 +1,30 @@
+# One-click-ish deploy to Render.com (both services). After connecting the repo,
+# Render reads this file. Set AI_API_KEY in the dashboard if you want AI.
+services:
+  - type: web
+    name: autobi-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/health
+    envVars:
+      - key: CORS_ORIGINS
+        value: "*"            # tighten to your frontend URL after first deploy
+      - key: AI_PROVIDER
+        value: none
+      - key: AI_API_KEY
+        sync: false
+    disk:
+      name: autobi-storage
+      mountPath: /app/storage
+      sizeGB: 1
+
+  - type: web
+    name: autobi-frontend
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        # Set this to the backend service's public URL after it deploys.
+        sync: false

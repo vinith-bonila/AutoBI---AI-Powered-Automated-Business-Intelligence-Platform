@@ -1,0 +1,40 @@
+# AutoBI — full stack in one command:  docker compose up --build
+#
+# Frontend on :3000, backend on :8000. Uploaded datasets persist in a named
+# volume. Set AI_* in a .env file next to this file to enable AI narration;
+# without it the platform runs fully on its deterministic engine.
+
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      # Allow the frontend origin through CORS.
+      CORS_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+      STORAGE_DIR: /app/storage
+      # AI is optional — supply these to enable it.
+      AI_PROVIDER: "${AI_PROVIDER:-none}"
+      AI_MODEL: "${AI_MODEL:-claude-sonnet-5}"
+      AI_API_KEY: "${AI_API_KEY:-}"
+      AI_BASE_URL: "${AI_BASE_URL:-}"
+    volumes:
+      - autobi-storage:/app/storage
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # The browser calls the backend directly; point this at the backend's
+        # public origin (localhost for a local run).
+        NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://localhost:8000}"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  autobi-storage:
