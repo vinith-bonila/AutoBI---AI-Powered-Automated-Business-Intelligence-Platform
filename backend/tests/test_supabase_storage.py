@@ -234,3 +234,91 @@ class TestConfigGuard:
 
         with pytest.raises(StorageError):
             SupabaseStorage(Settings(storage_backend="supabase"))
+
+    @pytest.mark.parametrize(
+        "bad_url",
+        [
+            "https://autobi-frontend-41lt.onrender.com",  # the frontend URL
+            "https://autobi.vercel.app",
+            "http://localhost:3000",
+            "https://myapp.netlify.app",
+        ],
+    )
+    def test_rejects_wrong_host_at_init(self, bad_url):
+        """A non-Supabase host (the classic misconfig) fails fast with a clear
+        message rather than a confusing runtime 404."""
+        from app.services.storage import StorageError
+
+        with pytest.raises(StorageError, match="not a Supabase project URL"):
+            SupabaseStorage(
+                Settings(
+                    storage_backend="supabase",
+                    supabase_url=bad_url,
+                    supabase_service_key="service-key",
+                )
+            )
+
+    def test_self_hosted_custom_domain_is_allowed(self):
+        # A custom domain that isn't a known-wrong host must still be accepted.
+        store = SupabaseStorage(
+            Settings(
+                storage_backend="supabase",
+                supabase_url="https://supabase.mycompany.internal",
+                supabase_service_key="k",
+            )
+        )
+        assert store._host == "supabase.mycompany.internal"
+
+
+class TestWrongHostDiagnostics:
+    """Reproduces the real-world 404: SUPABASE_URL points at a Next.js/Vercel
+    host, so the upload POST gets an HTML 404 page instead of a Supabase reply.
+    """
+
+    NEXTJS_404 = (
+        '<!DOCTYPE html><html lang="en" data-dpl-id="dpl_3UcGM12SswBA7LCst6ve21Y69Mam">'
+        '<head><meta charSet="utf-8" data-next-head=""/></head><body>404</body></html>'
+    )
+
+    def _storage_pointed_at_html_host(self):
+        # Host passes the init guard (looks like a supabase domain) but the
+        # server actually returns Next.js HTML — mimics a proxied/wrong project.
+        settings = Settings(
+            storage_backend="supabase",
+            supabase_url="https://wrong-but-plausible.supabase.co",
+            supabase_service_key="super-secret-service-key-DO-NOT-LEAK",
+        )
+        store = SupabaseStorage(settings)
+
+        def handler(request):
+            return httpx.Response(
+                404,
+                text=self.NEXTJS_404,
+                headers={"content-type": "text/html; charset=utf-8"},
+            )
+
+        store._client = httpx.Client(
+            transport=httpx.MockTransport(handler), headers=store._client.headers
+        )
+        return store
+
+    def test_upload_html_404_gives_clear_config_error(self):
+        from app.services.storage import StorageError
+
+        store = self._storage_pointed_at_html_host()
+        with pytest.raises(StorageError) as exc:
+            store.create_dataset("raw.csv", b"a,b\n1,2\n")
+        message = str(exc.value)
+        # The message must name the real problem: SUPABASE_URL / wrong host.
+        assert "SUPABASE_URL" in message
+        assert "HTML page" in message
+        # And it must NEVER leak the service key.
+        assert "super-secret-service-key-DO-NOT-LEAK" not in message
+
+    def test_download_html_404_is_not_reported_as_dataset_not_found(self):
+        from app.services.storage import StorageError
+
+        store = self._storage_pointed_at_html_host()
+        # An HTML 404 is a config error, not a genuine "object missing".
+        with pytest.raises(StorageError, match="SUPABASE_URL"):
+            store.load_frame("deadbeef")
