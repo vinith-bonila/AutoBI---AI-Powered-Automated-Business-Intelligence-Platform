@@ -233,8 +233,14 @@ class SupabaseStorage(StorageBackend):
         if older_than_hours <= 0:
             return 0
         cutoff = (datetime.now(timezone.utc) - timedelta(hours=older_than_hours)).isoformat()
+        # Pass the filter through httpx `params=` so the client percent-encodes
+        # it. A raw-concatenated `+00:00` timezone offset is decoded by the
+        # server as a space, producing an invalid-timestamp error (Postgres
+        # 22007). httpx encodes the `+` as `%2B`, which round-trips correctly.
         response = self._rest(
-            "GET", f"{DATASETS_TABLE}?created_at=lt.{cutoff}&select=id"
+            "GET",
+            DATASETS_TABLE,
+            params={"created_at": f"lt.{cutoff}", "select": "id"},
         )
         rows = response.json()
         for row in rows:

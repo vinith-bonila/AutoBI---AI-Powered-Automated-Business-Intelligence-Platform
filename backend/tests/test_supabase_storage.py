@@ -197,6 +197,35 @@ class TestLifecycle:
         assert removed == 1
         assert not store.exists(ds)
 
+    def test_purge_expired_timestamp_offset_is_encoded_not_spaced(self, storage):
+        """Regression: the retention sweep sent `created_at=lt.<ts>+00:00` by
+        raw concatenation, so the server decoded the `+` as a space and Postgres
+        rejected it (22007 invalid timestamp). The filter must go through the
+        client's encoding so `+00:00` survives as `%2B00:00`, not ` 00:00`.
+        """
+        from urllib.parse import parse_qs, urlparse
+
+        store, _ = storage
+        captured: dict[str, str] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["url"] = str(request.url)
+            return httpx.Response(200, json=[])
+
+        store._client = httpx.Client(
+            transport=httpx.MockTransport(handler), headers=store._client.headers
+        )
+        store.purge_expired(24)
+
+        raw_url = captured["url"]
+        # On the wire the '+' must be percent-encoded, never a bare '+'.
+        assert "%2B" in raw_url
+        # Decoded the way the server does it, the offset is intact — not a space.
+        created_at = parse_qs(urlparse(raw_url).query)["created_at"][0]
+        assert created_at.startswith("lt.")
+        assert "+00:00" in created_at
+        assert " 00:00" not in created_at
+
 
 class TestSavedDashboards:
     def test_save_and_load(self, storage):
