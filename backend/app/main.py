@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .api.deps import get_ai_service, get_cache, get_storage
-from .api.routes import datasets, health
+from .api.routes import dashboards, datasets, health
 from .config import get_settings
 from .services.storage import DatasetNotFound, StorageError
 from .utils.csvio import CSVParseError
@@ -74,6 +74,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(datasets.router)
+    app.include_router(dashboards.router)
 
     # -- error handling ----------------------------------------------------
     # Uploaded data is untrusted, so failures are reported as clean messages

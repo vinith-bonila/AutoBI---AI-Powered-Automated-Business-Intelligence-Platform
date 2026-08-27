@@ -18,6 +18,8 @@ import type {
   JobState,
   KPIRefreshResponse,
   PreviewResponse,
+  SavedDashboard,
+  SavedDashboardSummary,
   UploadResponse,
 } from "@/types";
 
@@ -152,6 +154,22 @@ export const api = {
   // Export URLs are plain GET downloads; the browser handles the file save.
   exportUrl: (datasetId: string, kind: string) =>
     `${API_URL}/api/datasets/${datasetId}/export/${kind}`,
+
+  // --- saved dashboards (save / load / share) ---------------------------
+  saveDashboard: (datasetId: string, name: string, config: unknown) =>
+    request<SavedDashboard>(`/api/datasets/${datasetId}/dashboards`, {
+      method: "POST",
+      body: JSON.stringify({ name, config }),
+    }),
+
+  listDashboards: (datasetId: string) =>
+    request<SavedDashboardSummary[]>(`/api/datasets/${datasetId}/dashboards`),
+
+  loadDashboard: (dashboardId: string) =>
+    request<SavedDashboard>(`/api/dashboards/${dashboardId}`),
+
+  deleteDashboard: (dashboardId: string) =>
+    request<void>(`/api/dashboards/${dashboardId}`, { method: "DELETE" }),
 
   kpis: (datasetId: string, filters: FilterValue[]) =>
     request<KPIRefreshResponse>(`/api/datasets/${datasetId}/kpis`, {

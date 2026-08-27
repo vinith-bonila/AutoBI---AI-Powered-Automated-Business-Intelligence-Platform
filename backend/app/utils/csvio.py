@@ -141,8 +141,17 @@ def validate_upload(filename: str, size: int, *, max_bytes: int, allowed: tuple[
 
 
 def read_csv(path: Path, *, max_rows: int = 1_000_000) -> ParsedCSV:
-    """Read a CSV/TSV file into an all-string DataFrame."""
-    raw = path.read_bytes()
+    """Read a CSV/TSV file from disk into an all-string DataFrame."""
+    return read_csv_bytes(path.read_bytes(), max_rows=max_rows)
+
+
+def read_csv_bytes(raw: bytes, *, max_rows: int = 1_000_000) -> ParsedCSV:
+    """Read a CSV/TSV file from raw bytes into an all-string DataFrame.
+
+    Splitting the byte-level parse out of `read_csv` lets a storage backend
+    supply the bytes however it holds them — a local file, an object-storage
+    download — without the parser caring where they came from.
+    """
     if not raw.strip():
         raise CSVParseError("Uploaded file is empty.")
 
@@ -223,8 +232,7 @@ def read_csv(path: Path, *, max_rows: int = 1_000_000) -> ParsedCSV:
         raise CSVParseError("Every row in the file was empty.")
 
     log.info(
-        "Parsed %s: %d rows x %d cols (delim=%r encoding=%s)",
-        path.name,
+        "Parsed %d rows x %d cols (delim=%r encoding=%s)",
         len(frame),
         frame.shape[1],
         delimiter,

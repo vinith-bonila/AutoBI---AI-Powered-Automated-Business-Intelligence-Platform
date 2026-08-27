@@ -23,6 +23,7 @@ import { KpiCard } from "./KpiCard";
 import { FilterBar } from "./FilterBar";
 import { TimeAggregation } from "./TimeAggregation";
 import { ExportMenu } from "./ExportMenu";
+import { SavedViews } from "./SavedViews";
 import { CustomizePanel } from "./CustomizePanel";
 import { AddVisualizationModal } from "./AddVisualizationModal";
 import { ChartCard, type ChartActions } from "@/components/charts/ChartCard";
@@ -77,6 +78,17 @@ export function DashboardView({ data }: { data: DashboardResponse }) {
   // Load field metadata once, for the customization menus.
   useEffect(() => {
     api.fields(data.dataset_id).then(setFields).catch(() => setFields(null));
+  }, [data.dataset_id]);
+
+  // A `?view=<id>` share link applies a saved dashboard configuration on load.
+  useEffect(() => {
+    const viewId = new URLSearchParams(window.location.search).get("view");
+    if (!viewId) return;
+    api
+      .loadDashboard(viewId)
+      .then((record) => cfg.loadConfig(record.config as never))
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.dataset_id]);
 
   const filterPayload = useMemo(
@@ -166,6 +178,7 @@ export function DashboardView({ data }: { data: DashboardResponse }) {
             <Button variant="secondary" onClick={() => setAskOpen(true)}>
               <SparkIcon /> Ask AI
             </Button>
+            <SavedViews datasetId={data.dataset_id} cfg={cfg} />
             <ExportMenu
               datasetId={data.dataset_id}
               config={config}

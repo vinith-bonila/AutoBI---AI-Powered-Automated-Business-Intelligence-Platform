@@ -64,7 +64,9 @@ class StorageBackend(abc.ABC):
     def create_dataset(self, filename: str, content: bytes) -> str: ...
 
     @abc.abstractmethod
-    def raw_path(self, dataset_id: str) -> Path: ...
+    def read_raw(self, dataset_id: str) -> bytes:
+        """The original uploaded bytes — from disk, object storage, wherever."""
+        ...
 
     @abc.abstractmethod
     def save_frame(self, dataset_id: str, frame: pd.DataFrame) -> None: ...
@@ -96,6 +98,20 @@ class StorageBackend(abc.ABC):
     @abc.abstractmethod
     def purge_expired(self, older_than_hours: int) -> int: ...
 
+    # -- saved dashboards (save / load / share) ----------------------------
+
+    @abc.abstractmethod
+    def save_dashboard(self, dataset_id: str, name: str, config: dict) -> dict: ...
+
+    @abc.abstractmethod
+    def load_dashboard(self, dashboard_id: str) -> dict: ...
+
+    @abc.abstractmethod
+    def list_dashboards(self, dataset_id: str | None = None) -> list[dict]: ...
+
+    @abc.abstractmethod
+    def delete_dashboard(self, dashboard_id: str) -> None: ...
+
 
 class LocalStorage(StorageBackend):
     """Filesystem-backed storage for the MVP."""
@@ -116,8 +132,11 @@ class LocalStorage(StorageBackend):
             raise DatasetNotFound(dataset_id)
         return path
 
-    def raw_path(self, dataset_id: str) -> Path:
-        return self._dir(dataset_id) / RAW_FILE
+    def read_raw(self, dataset_id: str) -> bytes:
+        path = self._dir(dataset_id) / RAW_FILE
+        if not path.exists():
+            raise DatasetNotFound(dataset_id)
+        return path.read_bytes()
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -244,6 +263,56 @@ class LocalStorage(StorageBackend):
         out.sort(key=lambda m: m.get("created_at", ""), reverse=True)
         return out
 
+    # -- saved dashboards --------------------------------------------------
+
+    def _dashboards_dir(self) -> Path:
+        path = self._settings.storage_dir / "dashboards"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def save_dashboard(self, dataset_id: str, name: str, config: dict) -> dict:
+        _validate_id(dataset_id)
+        dashboard_id = uuid.uuid4().hex
+        now = _now()
+        record = {
+            "id": dashboard_id,
+            "dataset_id": dataset_id,
+            "name": name,
+            "config": config,
+            "created_at": now,
+            "updated_at": now,
+        }
+        (self._dashboards_dir() / f"{dashboard_id}.json").write_text(
+            json.dumps(record, indent=2, default=str), encoding="utf-8"
+        )
+        return record
+
+    def load_dashboard(self, dashboard_id: str) -> dict:
+        safe = _validate_id(dashboard_id)
+        path = self._dashboards_dir() / f"{safe}.json"
+        if not path.exists():
+            raise DatasetNotFound(dashboard_id)
+        return json.loads(path.read_text("utf-8"))
+
+    def list_dashboards(self, dataset_id: str | None = None) -> list[dict]:
+        out: list[dict] = []
+        for file in self._dashboards_dir().glob("*.json"):
+            try:
+                record = json.loads(file.read_text("utf-8"))
+            except (OSError, ValueError):
+                continue
+            if dataset_id and record.get("dataset_id") != dataset_id:
+                continue
+            # The list view omits the (potentially large) config blob.
+            out.append({k: v for k, v in record.items() if k != "config"})
+        out.sort(key=lambda r: r.get("updated_at", ""), reverse=True)
+        return out
+
+    def delete_dashboard(self, dashboard_id: str) -> None:
+        safe = _validate_id(dashboard_id)
+        path = self._dashboards_dir() / f"{safe}.json"
+        path.unlink(missing_ok=True)
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -266,7 +335,13 @@ def build_storage(settings: Settings) -> StorageBackend:
     backend = settings.storage_backend.lower()
     if backend == "local":
         return LocalStorage(settings)
+    if backend == "supabase":
+        # Imported lazily to avoid a circular import (supabase_storage builds
+        # on this module) and to keep httpx off the local-only path.
+        from .supabase_storage import SupabaseStorage
+
+        return SupabaseStorage(settings)
     raise StorageError(
         f"Unsupported storage backend `{settings.storage_backend}`. "
-        "Only `local` is implemented in this build."
+        "Use `local` or `supabase`."
     )

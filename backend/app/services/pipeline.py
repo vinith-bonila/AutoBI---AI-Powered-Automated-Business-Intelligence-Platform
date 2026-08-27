@@ -27,7 +27,7 @@ from ..schemas.dashboard import DashboardSpecification
 from ..schemas.enums import JobStatus
 from ..schemas.profile import DatasetProfile
 from ..schemas.quality import DataQualityReport
-from ..utils.csvio import CSVParseError, read_csv
+from ..utils.csvio import CSVParseError, read_csv_bytes
 from ..utils.logging import get_logger
 from .dashboard_builder import build_dashboard
 from .storage import StorageBackend
@@ -174,8 +174,9 @@ class AnalysisPipeline:
             # -- parse ------------------------------------------------------
             tracker.start_step(dataset_id, "parse")
             step_start = time.perf_counter()
+            raw_bytes = await asyncio.to_thread(storage.read_raw, dataset_id)
             parsed = await asyncio.to_thread(
-                read_csv, storage.raw_path(dataset_id), max_rows=settings.max_rows_analyzed
+                read_csv_bytes, raw_bytes, max_rows=settings.max_rows_analyzed
             )
             raw_frame = parsed.frame
             tracker.complete_step(

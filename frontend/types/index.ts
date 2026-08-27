@@ -526,6 +526,23 @@ export interface AskResponse {
   warning: string | null;
 }
 
+export interface SavedDashboard {
+  id: string;
+  dataset_id: string;
+  name: string;
+  config: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SavedDashboardSummary {
+  id: string;
+  dataset_id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
 /** A filter value as sent to the backend. */
 export interface FilterValue {
   column: string;

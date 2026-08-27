@@ -166,6 +166,8 @@ export interface DashboardConfigApi {
   removeChart: (id: string) => void;
   addChart: (chart: ChartSpecification) => void;
   reset: () => void;
+  /** Replace the whole config (loading a saved view), pinned to this dataset. */
+  loadConfig: (config: DashboardConfig) => void;
 }
 
 export function useDashboardConfig(data: DashboardResponse): DashboardConfigApi {
@@ -206,5 +208,11 @@ export function useDashboardConfig(data: DashboardResponse): DashboardConfigApi 
     removeChart: (id) => dispatch({ type: "removeChart", id }),
     addChart: (chart) => dispatch({ type: "addChart", chart }),
     reset,
+    loadConfig: (loaded) =>
+      // Keep the current dataset id; a saved view is applied onto this dataset.
+      dispatch({
+        type: "replace",
+        config: { ...loaded, version: 1, datasetId: data.dataset_id },
+      }),
   };
 }

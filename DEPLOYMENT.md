@@ -93,6 +93,35 @@ mount a disk at `/app/storage`, and set `CORS_ORIGINS` to your Vercel URL.
 
 ---
 
+## Supabase (production storage + saved dashboards)
+
+By default AutoBI stores datasets on the local disk (`STORAGE_BACKEND=local`).
+For a real deployment — where the backend's filesystem is ephemeral and you want
+durable storage plus save/share — switch to Supabase:
+
+1. Create a Supabase project.
+2. In the SQL editor, run **`supabase/schema.sql`**. It creates the `autobi`
+   storage bucket, the `datasets` table (metadata + analysis artifacts as
+   jsonb), the `saved_dashboards` table, and enables row-level security with no
+   policies (so only the server's service-role key can touch them).
+3. Set on the backend:
+   ```
+   STORAGE_BACKEND=supabase
+   SUPABASE_URL=https://<project-ref>.supabase.co
+   SUPABASE_SERVICE_KEY=<service-role key>   # server-side only — never the anon key
+   SUPABASE_BUCKET=autobi
+   ```
+
+That's the only change. Every part of the app depends on the `StorageBackend`
+interface, so raw CSVs and cleaned Parquet now live in Supabase Storage, and
+metadata, analysis artifacts and saved dashboards live in Postgres — with no
+other code touched. This is what powers **Save view / Load / Share** in the
+dashboard header.
+
+**Recommended stack:** Vercel (frontend) + Railway or Render (backend) +
+Supabase (storage + Postgres). Point `NEXT_PUBLIC_API_URL` at the backend and
+`CORS_ORIGINS` at the frontend, and you're done.
+
 ## Production notes
 
 - **AI is optional.** With `AI_PROVIDER=none` the platform is fully functional

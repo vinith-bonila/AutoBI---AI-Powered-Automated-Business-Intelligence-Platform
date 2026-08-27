@@ -33,6 +33,9 @@ from ...schemas.api import (
     JobState,
     KPIRefreshResponse,
     PreviewResponse,
+    SavedDashboard,
+    SavedDashboardSummary,
+    SaveDashboardRequest,
     UploadResponse,
 )
 from ...schemas.dashboard import DashboardSpecification
@@ -564,6 +567,31 @@ async def export_dataset(
             "Content-Disposition": f'attachment; filename="{export.filename}"'
         },
     )
+
+
+@router.post("/{dataset_id}/dashboards", response_model=SavedDashboard)
+async def save_dashboard(
+    dataset_id: str,
+    request: SaveDashboardRequest,
+    storage: StorageBackend = Depends(get_storage),
+) -> SavedDashboard:
+    """Persist a customized dashboard configuration so it can be reloaded."""
+    if not storage.exists(dataset_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Dataset `{dataset_id}` was not found.",
+        )
+    record = storage.save_dashboard(dataset_id, request.name, request.config)
+    return SavedDashboard(**record)
+
+
+@router.get("/{dataset_id}/dashboards", response_model=list[SavedDashboardSummary])
+async def list_dataset_dashboards(
+    dataset_id: str,
+    storage: StorageBackend = Depends(get_storage),
+) -> list[SavedDashboardSummary]:
+    """Saved dashboards for one dataset."""
+    return [SavedDashboardSummary(**r) for r in storage.list_dashboards(dataset_id)]
 
 
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)

@@ -199,3 +199,36 @@ class AskResponse(BaseModel):
 class ErrorResponse(BaseModel):
     detail: str
     code: str = "error"
+
+
+class SaveDashboardRequest(BaseModel):
+    """Persist a customized dashboard so it can be reloaded or shared."""
+
+    name: str
+    # The client-side DashboardConfig (theme, layout, ordering, custom charts).
+    config: dict[str, Any]
+
+    @field_validator("name")
+    @classmethod
+    def _bounded_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("name must not be empty")
+        return v[:120]
+
+
+class SavedDashboard(BaseModel):
+    id: str
+    dataset_id: str
+    name: str
+    config: dict[str, Any] = Field(default_factory=dict)
+    created_at: str
+    updated_at: str
+
+
+class SavedDashboardSummary(BaseModel):
+    id: str
+    dataset_id: str
+    name: str
+    created_at: str
+    updated_at: str

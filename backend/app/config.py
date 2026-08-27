@@ -25,8 +25,20 @@ class Settings(BaseSettings):
     # Local filesystem for the MVP. `StorageBackend` is an interface, so a
     # PostgreSQL/S3 implementation can be dropped in without touching services.
     storage_dir: Path = BACKEND_ROOT / "storage"
-    storage_backend: str = "local"
+    storage_backend: str = "local"  # local | supabase
     retention_hours: int = 24
+
+    # --- Supabase (when storage_backend=supabase) --------------------------
+    # Files (raw CSV, cleaned Parquet) live in Supabase Storage; dataset
+    # metadata, analysis artifacts and saved dashboards live in Postgres,
+    # reached through PostgREST. The service-role key stays server-side only.
+    supabase_url: str = ""
+    supabase_service_key: str = ""
+    supabase_bucket: str = "autobi"
+
+    @property
+    def supabase_configured(self) -> bool:
+        return bool(self.supabase_url and self.supabase_service_key)
 
     # --- upload limits -----------------------------------------------------
     max_upload_bytes: int = 100 * 1024 * 1024  # 100 MB
