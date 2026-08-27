@@ -1,30 +1,53 @@
-# One-click-ish deploy to Render.com (both services). After connecting the repo,
-# Render reads this file. Set AI_API_KEY in the dashboard if you want AI.
+# AutoBI — Render Blueprint (both services from one repo).
+#
+#   Render dashboard → New → Blueprint → pick this repo.
+#   Render reads this file and creates both services. You'll be prompted to
+#   enter the `sync: false` secrets (Supabase URL + service key).
+#
+# DEPLOY ORDER (important): the frontend bakes NEXT_PUBLIC_API_URL into its
+# bundle at BUILD time. On the first blueprint apply the backend URL isn't known
+# yet, so after the backend is live: set NEXT_PUBLIC_API_URL on the frontend to
+# the backend's URL, then redeploy the frontend
+# (Manual Deploy → "Clear build cache & deploy").
+
 services:
+  # ----------------------------------------------------------------- backend
   - type: web
     name: autobi-backend
     runtime: docker
+    plan: standard              # 2 GB RAM — pandas + DuckDB need headroom;
+                                # a 512 MB instance can OOM on large CSVs.
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     healthCheckPath: /api/health
     envVars:
+      # --- storage: Supabase Storage (files) + Postgres (metadata/artifacts/
+      #     saved dashboards). Run supabase/schema.sql once before deploying.
+      - key: STORAGE_BACKEND
+        value: supabase
+      - key: SUPABASE_URL
+        sync: false             # https://<project-ref>.supabase.co
+      - key: SUPABASE_SERVICE_KEY
+        sync: false             # service_role key — backend only, NEVER the anon key
+      - key: SUPABASE_BUCKET
+        value: autobi
+      # --- CORS: start open, then tighten to the frontend URL after first deploy
       - key: CORS_ORIGINS
-        value: "*"            # tighten to your frontend URL after first deploy
+        value: "*"
+      # --- AI (optional): to enable, set AI_PROVIDER=anthropic (or openai) and
+      #     add AI_API_KEY in the dashboard. Left off by default.
       - key: AI_PROVIDER
         value: none
-      - key: AI_API_KEY
-        sync: false
-    disk:
-      name: autobi-storage
-      mountPath: /app/storage
-      sizeGB: 1
 
+  # ---------------------------------------------------------------- frontend
   - type: web
     name: autobi-frontend
     runtime: docker
+    plan: starter               # a Next.js standalone server is light
     dockerfilePath: ./frontend/Dockerfile
     dockerContext: ./frontend
     envVars:
       - key: NEXT_PUBLIC_API_URL
-        # Set this to the backend service's public URL after it deploys.
-        sync: false
+        sync: false             # https://autobi-backend-XXXX.onrender.com
+                                # set AFTER the backend deploys, then redeploy
+                                # the frontend so the value is baked into the build.
