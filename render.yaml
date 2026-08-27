@@ -15,8 +15,9 @@ services:
   - type: web
     name: autobi-backend
     runtime: docker
-    plan: standard              # 2 GB RAM — pandas + DuckDB need headroom;
-                                # a 512 MB instance can OOM on large CSVs.
+    plan: free                  # $0, no card. 512 MB RAM / spins down after
+                                # ~15 min idle (first request then cold-starts).
+                                # Keep uploads modest; very large CSVs may OOM.
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     healthCheckPath: /api/health
@@ -43,7 +44,7 @@ services:
   - type: web
     name: autobi-frontend
     runtime: docker
-    plan: starter               # a Next.js standalone server is light
+    plan: free                  # $0, no card. Also spins down when idle.
     dockerfilePath: ./frontend/Dockerfile
     dockerContext: ./frontend
     envVars:
